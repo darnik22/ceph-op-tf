@@ -26,12 +26,15 @@ done
 # Run the playbook
 P=$(pwd | rev | cut -d'/' -f 1 | rev)
 cd ..
-#ansible-playbook -i ${P}/ceph-op-hosts ceph-prep.yml -e "opname=$1 subdomain=$2 ansible_user=$3"
+echo ============== ceph-prep ==================
+ansible-playbook -i ${P}/ceph-op-hosts ceph-prep.yml -e "opname=$1 subdomain=$2 ansible_user=$3"
 echo P=${P}
 cd ceph-ansible
-#ansible-playbook -i ../${P}/ceph-op-hosts site.yml
+echo ============== ceph-ansible ==================
+ansible-playbook -i ../${P}/ceph-op-hosts site.yml
 cd ..
+echo ============== ceph-after ==================
 ansible-playbook -i ${P}/ceph-op-hosts ceph-after.yml
-#ansible-playbook -i ${P}/ceph-op-hosts op.yml
+ansible-playbook -i ${P}/ceph-op-hosts op.yml
 
 

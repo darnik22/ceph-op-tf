@@ -2,7 +2,7 @@ variable "ceph_nodes_count" {
   default = 3
 }
 variable "op_nodes_count" {
-  default = 0
+  default = 1
 }
 variable "opname" {}
 variable "subdomain" {}

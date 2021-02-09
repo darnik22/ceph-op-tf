@@ -131,10 +131,6 @@
     - name: Set longitude
       set_fact:
         longitude: "{{geo.json.longitude}}"
-    - name: Obtain ceph_monitors
-      set_fact:
-        ceph_key: "{{ lookup('file', '/etc/ceph/ceph.client.admin') | 
-    - name: Obtain ceph_key
     - name: Prepare docker-compose.yml
       become: yes
       become_user: root
