@@ -1,0 +1,168 @@
+- name: A become=yes block
+  become: yes
+  block:
+    - name: Gather ipv4 from all hosts
+      setup:
+        gather_subset:
+          - default_ipv4
+      delegate_to: "{{ item }}"
+      delegate_facts: True
+      when: hostvars[item]['ansible_default_ipv4'] is not defined
+      with_items: "{{ groups['all'] }}"
+    - name: Check for subdomain
+      command: "host {{subdomain}}.{{domain}}"
+      register: host_cmd
+      failed_when: false
+      ignore_errors: yes
+    - name: Check if there is already deployed oneprovider
+      find:
+        paths: '/opt/onedata/oneprovider/persistence'
+        file_type: any
+      register: files_found
+    - name: Check oneprovider is running
+      shell: curl -k https://127.0.0.1:9443/configuration 2>/dev/null
+      register: op_up
+      failed_when: false
+      
+    - fail:
+        msg: 'The folder /opt/onedata/oneprovider/persistence is not empty. There might be existing deployment. If you want to force a new deployment and discard the data in /opt/onedata/oneprovider/persistence set force_op_install to true.'
+      when: files_found.matched > 0 and not force_op_install
+    - fail: 
+        msg: "The subdomain {{subdomain}}.{{domain}} is used. Remove it from your onezone or use another or set force_op_install to true."
+      failed_when: host_cmd.rc == 0 and force_op_install
+      when: host_cmd.rc == 0 and not force_op_install
+    - fail:
+        msg: 'Oneprovider is not running and the subdomain is registered. Deregistering will not be possible. Bring it up or chose another subdomain.'
+      when: op_up.rc != 0 and host_cmd.rc == 0
+
+    - name: Last chance to stop
+      pause:
+        prompt: 'WARNING: The current deployment will be removed. Press Ctrl-C to cancel the execution.'
+        seconds: "{{timeout}}"      
+      when: files_found.matched > 0 
+    - debug: 
+        msg: 'Deployment not canceled. Proceeding...'
+
+    - name: Deregister oneprovider
+      command: curl -k --fail --silent -H "X-Auth-Token:{{auth_token}}" -sS --tlsv1.2 -X DELETE "https://localhost:9443/api/v3/onepanel/provider"
+      when: files_found.matched > 0 and host_cmd.rc == 0
+    - name: Stop oneprovider
+      systemd:
+        name: oneprovider
+        state: stopped
+      when: op_up.rc == 0
+    - name: Remove /opt/onedata/oneprovider/persistence
+      file:
+        path: /opt/onedata/oneprovider/persistence
+        state: absent
+    - name: mkdir /opt/onedata
+      file:
+        path: /opt/onedata
+        state: directory
+        mode: 0755
+    - name: Check for /dev/nvme0n1
+      stat:
+        path: /dev/nvme0n1
+      register: nvme_stat
+    - name: Check for mounted NVMe
+      shell: mount | grep nvme0n1
+      register: mntchk
+      failed_when: false
+    - name: Make filesystem on NVMe
+      filesystem:
+        dev: /dev/nvme0n1
+        fstype: xfs
+        force: yes
+        opts: -f
+      when: nvme_stat.stat.exists == True and mntchk.rc != 0
+    - name: Mount /opt/onedata
+      mount:
+        path: /opt/onedata
+        src: /dev/nvme0n1
+        state: mounted
+        fstype: xfs
+      when: nvme_stat.stat.exists == True
+    - name: mkdir /opt/onedata/oneprovider
+      file:
+        path: /opt/onedata/oneprovider
+        state: directory
+        mode: 0755
+    - name: mkdir /opt/onedata/oneprovider/certs
+      file:
+        path: /opt/onedata/oneprovider/certs
+        state: directory
+        mode: 0755
+
+    - name: mkdir /opt/onedata/oneprovider/persistence
+      file:
+        path: /opt/onedata/oneprovider/persistence
+        state: directory
+        mode: 0755
+    - name: Copy oneprovider.service
+      become: yes
+      become_user: root
+      copy:
+        src: oneprovider.service
+        dest: /etc/systemd/system/oneprovider.service
+    - name: Generate registration token
+      command: curl -v -H 'X-Auth-Token:{{auth_token}}' -X POST https://{{domain}}/api/v3/onezone/user/clusters/provider_registration_token
+      register: res
+    - name: Set registration token
+      set_fact:
+        registration_token: "{{(res.stdout | from_json).token}}"
+    # - name: Set joiners
+    #   set_fact:
+    #     joiners: "{{groups['op-joiners']}}"
+    # - debug:
+    #     msg: "Joiners: {{joiners}}"
+    - name: Obtain geo coordinates
+      uri:
+        url: http://api.ipstack.com/check?access_key=45e12e9956b86e77b32930cd223f1ef4
+        method: GET
+        status_code: [200, 201]
+      register: geo
+    # - debug:
+    #     msg: "{{geo|to_nice_json}}"
+    # - debug:
+    #     msg: "{{geo.json.latitude}}"
+    - name: Set latitude
+      set_fact:
+        latitude: "{{geo.json.latitude}}"
+    - name: Set longitude
+      set_fact:
+        longitude: "{{geo.json.longitude}}"
+    - name: Obtain ceph_monitors
+      set_fact:
+        ceph_key: "{{ lookup('file', '/etc/ceph/ceph.client.admin') | 
+    - name: Obtain ceph_key
+    - name: Prepare docker-compose.yml
+      become: yes
+      become_user: root
+      template:
+        src: docker-compose.j2
+        dest: /opt/onedata/oneprovider/docker-compose.yml
+    # - name: Copy op-worker-overlay.config    ### Uncomment when the values are agreed
+    #   become: yes
+    #   copy:
+    #     src: op-worker-overlay.config
+    #     dest: /opt/onedata/oneprovider/op-worker-overlay.config
+    # - meta: end_play
+    - name: Start oneprovider
+      systemd:
+        name: oneprovider
+        state: started
+        enabled: yes
+    - name: Wait for oneprovider to come up
+      shell: curl -k https://127.0.0.1:9443/configuration 2>/dev/null | jq .deployed
+      register: res
+      until: res.stdout == 'true'
+      retries: 30
+      delay: 10
+      
+    # - name: Add storage (localceph)
+    #   command: curl -k -v -H 'X-Auth-Token:{{auth_token}}' -X POST -d "{\"localceph\":{\"type\":\"localceph\"}}" -H 'Content-Type:application/json' https://localhost:9443/api/v3/onepanel/provider/storages
+    #   register: res
+    #   when: storage_type == 'localceph'
+    # # - debug:
+    # #     msg: "{{res}}"
+          

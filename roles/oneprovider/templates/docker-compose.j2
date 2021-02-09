@@ -1,0 +1,116 @@
+#jinja2: lstrip_blocks: "False", trim_blocks: "False"
+version: '2.0'
+services:
+  node1.oneprovider:
+    # Oneprovider Docker image version
+    image: {{ image }}
+    # dns: 8.8.8.8 # Optional, in case Docker containers have no DNS access
+    # Friendly name of the Oneprovider Docker container
+    container_name: oneprovider-1
+    # Hostname (in this case the hostname inside Docker network)
+    hostname: {{inventory_hostname}}
+    extra_hosts:
+    - "{{inventory_hostname}}:127.0.1.1"
+    domainname: {{subdomain}}.{{domain}}
+    privileged: true
+    # Host network mode is preferred, but on some systems may not work (e.g. CentOS)
+    network_mode: host
+    # Mapping of volumes to Oneprovider container
+    volumes:
+       - "/var/run/docker.sock:/var/run/docker.sock"
+       # Oneprovider runtime files
+       - "/opt/onedata/oneprovider/persistence:/volumes/persistence"
+       # Data storage directories
+       - "{{posix_storage_dir}}:/volumes/storage"
+       # Additional, trusted CA certificates (all files from this directory will be added)
+       - "/opt/onedata/oneprovider/cacerts:/etc/op_worker/cacerts"
+       - "/opt/onedata/oneprovider/cacerts:/etc/op_panel/cacerts"
+       # Overlay config mounts
+       #- "/opt/onedata/oneprovider/op-worker-overlay.config:/etc/op_worker/overlay.config"
+       #- "/opt/onedata/oneprovider/op-panel-overlay.config:/etc/op_panel/overlay.config"       
+       # Uncoment lines below if you disabled the built-in Let's Encrypt client
+       ## SSL certificate
+       #- "/opt/onedata/oneprovider/certs/cert.pem:/etc/op_panel/certs/web_cert.pem"
+       ## SSL certificate key
+       #- "/opt/onedata/oneprovider/certs/key.pem:/etc/op_panel/certs/web_key.pem"
+       ## Certificate chain for the TLS certificate above
+       #- "/opt/onedata/oneprovider/certs/cacert.pem:/etc/op_panel/certs/web_chain.pem"
+    # Expose the necessary ports from Oneprovider container to the host
+    # This section can be commented when using host mode networking
+    ports:
+      - "80:80"
+      - "443:443"
+      - "6665:6665"
+      - "9443:9443"
+    environment:
+      # Force Onepanel to read configuration from environment variable
+      ONEPANEL_BATCH_MODE: "true"
+      ONEPANEL_EMERGENCY_PASSPHRASE: "{{adminpass}}"
+      # Provide initial Oneprovider configuration for Onepanel in environment variable
+      ONEPROVIDER_CONFIG: |
+        # Cluster configuration allows to specify distribution of Oneprovider
+        # components over multiple nodes - here we deploy entire service on
+        # a single node
+        cluster:
+          # Domain name of the provider within Docker network, will be appended
+          # to all nodes specified below
+          domainName: "{{subdomain}}.{{domain}}"
+          autoDeploy: true
+          nodes:
+            n1:
+              hostname: {{inventory_hostname}}
+          managers:
+            mainNode: "n1"
+            nodes:
+              - "n1"
+          workers:
+            nodes:
+              - "n1"
+          databases:
+            # Per node Couchbase cache size in MB for all buckets
+            serverQuota: 4096
+            # Per bucket Couchbase cache size in MB across the cluster
+            bucketQuota: 1024
+            nodes:
+              - "n1"
+          storages:
+            ceph:
+              type: CephRados
+              hostname: {{ceph_monitors}}
+              poolname: onedata
+              username: client.admin
+              key: {{ceph_key}}
+              clustername: ceph
+
+        oneprovider:
+          # geoLatitude: 50.0646501 # TODO: get coords automatically
+          # geoLongitude: 19.9449799
+          geoLatitude: {{latitude}}
+          geoLongitude: {{longitude}}
+          register: true
+          name: {{ opname }}
+          adminEmail: {{ email }}
+          token: {{registration_token}}
+          # Use built-in Let's Encrypt client to obtain and renew certificates
+          letsEncryptEnabled: true
+          # Automatically register this Oneprovider in Onezone without subdomain delegation
+          # subdomainDelegation: false
+          # domain: "oneprovider-example.tk"
+
+          # Alternatively:
+          ## Automatically register this Oneprovider in Onezone with subdomain delegation
+          subdomainDelegation: true
+          subdomain: {{ subdomain }} # Domain will be {{ subdomain }}.{{ domain }}
+        onezone:
+          # Address of the Onezone at which this Oneprovider will register
+          domainName: {{domain}}
+        # onepanel:
+        #   # Create initially 1 administrator and 1 regular user
+        #   users:
+        #     "admin":
+        #       password: {{adminpass}}
+        #       userRole: "admin"
+        #     "user":
+        #       password: {{userpass}}
+        #       userRole: "regular"
+        

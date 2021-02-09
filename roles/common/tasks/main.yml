@@ -1,0 +1,150 @@
+- name: A become=yes block
+  become: yes
+  block:
+    - name: Gather ipv4 from all hosts
+      setup:
+        gather_subset:
+          - default_ipv4
+      delegate_to: "{{ item }}"
+      delegate_facts: True
+      when: hostvars[item]['ansible_default_ipv4'] is not defined
+      with_items: "{{ groups['all'] }}"
+    - name: Install bind-utils, jq
+      apt:
+        update_cache: yes
+        name:
+          - bind9utils
+          - jq
+          - curl
+        state: present
+      when: ansible_distribution == "Ubuntu"
+    - name: Install bind-utils, jq
+      yum:
+        name:
+          - bind-utils
+          - jq
+          - curl
+        state: present
+      when: ansible_distribution == "CentOS"
+      
+    - name: Set max number of file
+      lineinfile:
+        regexp: soft nofile
+        line: "* soft nofile 63535"
+        state: present
+        path: /etc/security/limits.conf
+    - name: Set max number of file
+      lineinfile:
+        regexp: hard nofile
+        line: "* hard nofile 63535"
+        state: present
+        path: /etc/security/limits.conf
+    - name: Touch /etc/sysctl.d/50-swappiness.conf
+      shell: sudo touch /etc/sysctl.d/50-swappiness.conf
+    - name: Set swappiness
+      lineinfile:
+        regexp: vm.swappiness=
+        line: vm.swappiness=0
+        state: present
+        path: /etc/sysctl.d/50-swappiness.conf
+    - name: copy disable-thp.service
+      copy:
+        src: disable-thp.service
+        dest: /etc/systemd/system/disable-thp.service
+    - name: Enable disable-thp.service
+      systemd:
+        name: disable-thp
+        state: started
+    - name: Set net.core.wmem_max
+      sysctl:
+        name: net.core.wmem_max
+        value: "16777216"
+    - name: Set net.core.rmem_max
+      sysctl:
+        name: net.core.rmem_max
+        value: "16777216"       
+    - name: Set hostname
+      hostname:
+        name: "{{ inventory_hostname }}.{{subdomain}}.{{ domain }}"
+    # - name: Set FQDNs in /etc/hosts for all nodes
+    #   lineinfile:
+    #     path: /etc/hosts
+    #     regexp: "^{{ hostvars[item]['ansible_default_ipv4']['address'] }}"
+    #     line: "{{ hostvars[item]['ansible_default_ipv4']['address'] }} {{item}}.{{subdomain}}.{{domain}} {{item}}"
+    #   with_items:
+    #     - "{{groups['op-master']+groups['op-joiners']}}"
+    # - name: Disable resolvconf
+    #   systemd:
+    #     name: systemd-resolved
+    #     state: stopped
+    #     enabled: no
+    #   when: ansible_distribution == "Ubuntu"
+    # - name: Remove /etc/resolv.conf
+    #   file:
+    #     path: /etc/resolv.conf
+    #     state: absent
+    # - name: Create /etc/resolv.conf
+    #   copy:
+    #     content: "nameserver 8.8.8.8\n"
+    #     dest: /etc/resolv.conf
+    - name: Check for docker
+      stat:
+        path: /usr/bin/docker
+      register: ds
+    - name: Install docker
+      shell: curl --tlsv1 -sSL https://get.docker.com/ | sh
+      when: ds.stat.exists == False
+    - name: Start docker
+      systemd:
+        name: docker
+        state: started
+    - name: Add user to docker group
+      shell: "usermod -aG docker {{ansible_user_id}}"
+    - name: Check for docker-compose
+      stat:
+        path: /usr/bin/docker-compose
+      register: cs      
+    - name: Install docker-compose
+      shell: |
+        curl --tlsv1 -sSL -L https://github.com/docker/compose/releases/download/1.14.0/docker-compose-`uname -s`-`uname -m` > /usr/bin/docker-compose
+        chmod +x /usr/bin/docker-compose
+      when: cs.stat.exists == False
+    # - name: Comment otc dns
+    #   become: yes
+    #   become_user: root
+    #   replace:
+    #     path: /etc/resolv.conf
+    #     regexp: '^(nameserver 100)'
+    #     replace: '#\1'
+    #     backup: yes
+    # - name: Create /root/.docker
+    #   file:
+    #     path: /root/.docker
+    #     state: directory
+    # - name: Copy docker config.json
+    #   copy:
+    #     src: docker-config.json
+    #     dest: /root/.docker/config.json
+    - name: Pull oneprovider image
+      shell: |
+        docker pull {{image}}
+    # - name: Install nfs-common
+    #   apt:
+    #     name: nfs-common
+    #   when: nfs_path != ""
+    # - name: "Create {{posix_storage_dir}}"
+    #   file:
+    #     path: "{{posix_storage_dir}}"
+    #     state: directory
+    #     mode: 0777
+    #   # when: nfs_path != ""
+    # - name: Mount NFS
+    #   mount:
+    #     src: "{{nfs_path}}"
+    #     path: "{{posix_storage_dir}}"
+    #     state: mounted
+    #     fstype: nfs
+    #   when: nfs_path != ""
+
+        
+          

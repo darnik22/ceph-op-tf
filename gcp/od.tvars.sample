@@ -1,0 +1,8 @@
+opname = "myop-pretty"            # Oneprovider pretty name
+subdomain = "myop"                # Oneprovider subdomain
+pubkey = "place-your-pubkey-here" # Your public SSH key. Copy-paste it from ~/.ssh/id_rsa.pub
+user = "ubuntu"                   # The VM User with sudo which is giong to be created
+google_project = "your-project"   # Google project name
+google_region = "us-east1"        # Google region
+google_zone = "us-east1-b"        # Google zone
+google_keyfile_json = "/path/keyfile.json"  # Path to your google keyfile

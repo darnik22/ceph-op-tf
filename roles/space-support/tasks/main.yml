@@ -1,0 +1,105 @@
+- name: A become=yes block
+  become: yes
+  block:
+    - name: Get current time
+      uri:
+        url: https://{{domain}}/api/v3/onezone/provider/public/get_current_time
+      register: currentTime
+    - debug:
+        msg: Current time "{{currentTime.json.timeMillis}}" "{{ (currentTime.json.timeMillis/1000+3600) |int }}"
+        
+    - name: Generate support token
+      uri:
+        url: https://{{domain}}/api/v3/onezone/user/tokens/temporary
+        headers:
+          X-Auth-Token: "{{auth_token}}"
+          Content-Type: "application/json"
+        method: POST
+        body_format: json
+        body:
+          type:
+            inviteToken:
+              inviteType: supportSpace
+              spaceId: "{{spaceId}}"
+          usageLimit: 1
+          caveats:
+          - type: time
+            validUntil: "{{ (currentTime.json.timeMillis/1000+3600) |int }}"
+        status_code: 201
+      register: supportTokenNew
+      when: not "oneprovider:19" in image
+    - name: Generate support token (Legacy)
+      uri:
+        url: https://{{domain}}/api/v3/onezone/spaces/{{spaceId}}/providers/token
+        headers:
+          X-Auth-Token: "{{auth_token}}"
+        method: POST
+        status_code: 200
+      register: supportTokenOld
+      when: '"oneprovider:19" in image'
+    - set_fact: supportToken="{{supportTokenOld}}"
+      when: '"oneprovider:19" in image'
+    - set_fact: supportToken="{{supportTokenNew}}"
+      when: not "oneprovider:19" in image
+    - debug:
+        msg: "{{ supportToken.json.token }}"
+    - name: Wait for subdomain
+      wait_for:
+        host: "{{subdomain}}.{{domain}}"
+        port: 443
+    - name: Get storages      
+      uri:
+        url: https://{{subdomain}}.{{domain}}/api/v3/onepanel/provider/storages
+        headers:
+          X-Auth-Token: "{{auth_token}}"
+          Content-Type: "application/json"
+        method: GET
+        status_code: 200
+      register: storages
+      until: storages.status == 200
+      retries: 20
+      delay: 5
+    - debug:
+        msg: "{{storages.json.ids}}"
+    - name: Get storages details
+      uri:
+        url: https://{{subdomain}}.{{domain}}/api/v3/onepanel/provider/storages/{{item}}
+        headers:
+          X-Auth-Token: "{{auth_token}}"
+          Content-Type: "application/json"
+        method: GET
+        status_code: 200
+      with_items: "{{storages.json.ids}}"
+      register: storages_details
+      until: storages_details.status == 200
+      retries: 20
+      delay: 5
+    # - debug:
+    #     msg: "{{storages_details|json_query('results[? json.name == `NFS`].json.id')|first}}"
+    # - debug:
+    #     msg: "{{storages_details}}"
+    - name: Set storage_name to NFS
+      set_fact:
+        storage_name: NFS
+      when: storage_type == "posix"
+    - name: Set storage_name to localceph
+      set_fact:
+        storage_name: "localceph"
+      when: storage_type == "localceph"
+    - name: Support space
+      uri:
+        url: https://{{subdomain}}.{{domain}}/api/v3/onepanel/provider/spaces
+        headers:
+          X-Auth-Token: "{{auth_token}}"
+          Content-Type: "application/json"
+        method: POST
+        body_format: json
+        body:
+          token: "{{ supportToken.json.token }}"
+          size: "{{support_size}}"
+          storageId: "{{storages_details|json_query(\"results[?json.name == '\" + storage_name + \"'].json.id\")|first}}"
+        status_code: [200, 201]
+      register: res
+      until: res.status == 200 or res.status == 201
+      retries: 20
+      delay: 5

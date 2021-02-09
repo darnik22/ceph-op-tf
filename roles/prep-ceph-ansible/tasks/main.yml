@@ -1,0 +1,42 @@
+- name: A become=yes block
+  become: no
+  block:
+    - name: Checkout ceph-ansible
+      git:
+        repo: 'https://github.com/ceph/ceph-ansible.git'
+        dest: ceph-ansible
+        version: stable-4.0
+    - name: Install requirements
+      pip:
+        chdir: ceph-ansible
+        requirements: requirements.txt
+    - name: Copy site.yml
+      copy:
+        src: ceph-ansible/site.yml.sample
+        dest: ceph-ansible/site.yml
+      delegate_to: localhost
+    - name: Copy group_vars/all.yml
+      copy:
+        src: ceph-ansible/group_vars/all.yml.sample
+        dest: ceph-ansible/group_vars/all.yml
+      delegate_to: localhost
+    - name: Add lines to group_vars/all.yml
+      blockinfile:
+        path: ceph-ansible/group_vars/all.yml
+        block: |
+          ceph_origin: repository
+          ceph_repository: community
+          ceph_stable_release: nautilus
+          monitor_interface: ens4
+          devices:
+              - /dev/sdb
+          journal_size: 1024 # OSD journal size in MB
+          ceph_conf_overrides:
+            global:
+              osd_pool_default_size: 1
+          dashboard_enabled: False
+      delegate_to: localhost
+    # - name: Run ceph-ansible
+    #   shell:
+    #     cmd: ansible-playbook -v -i ../ceph-hosts site.yml > /tmp/ceph-ansible.log 2>&1
+    #     chdir: ceph-ansible
