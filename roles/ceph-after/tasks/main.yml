@@ -1,0 +1,18 @@
+- name: A become=yes block
+  become: yes
+  block:
+    # - name: Create pool onedata
+    #   shell: sudo ceph osd pool create onedata 256
+    # - name: Obtain ceph_monitors
+    #   set_fact:
+    #     ceph_mon: "{{ lookup('ini', 'mon_host section=global file=/etc/ceph/ceph.conf') }}"
+    #   # delegate_to: "ceph-node-01"
+    # - debug: 
+    #     msg: "{{ceph-mon}}"
+    - name: Obtain ceph_key
+      set_fact:
+        ceph_key: "{{ lookup('ini', 'key section=client.admin file=/etc/ceph/ceph.client.admin.keyring') }}"
+      # delegate_to: ceph-node-01
+    - debug: 
+        msg: "{{ceph-key}}"
+      

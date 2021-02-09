@@ -1,0 +1,7 @@
+- hosts:
+  - localhost
+  tasks:
+  gather_facts: no
+  - include_role:
+      name: prep-ceph-ansible
+

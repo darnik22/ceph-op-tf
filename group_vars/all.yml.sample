@@ -1,0 +1,21 @@
+    domain: example.com
+    emergency_passphrase: "Mypass_phrase123"
+
+    # Oneprovider vars
+    subdomain: myop             # The subdomain of oneprovider cluster
+    opname: MyProvider          # Pretty name of oneprovder cluster
+    timeout: 30                 # Time to wait before destroying existing deployment
+    auth_token: place_your_auth_token_here 
+    spaceId: place_the_space_id_to_be_supported
+    adminpass: 'Myadmin_pass'
+    userpass: 'Myuser_pass'
+    support_size: 2147483648    # support the space with storage of the given size in bytes
+    posix_storage_dir: "/mnt/nfs"   # Path to the storage dir. In case of multinode provider
+                                    # the same network storage should be mounted with this
+                                    # path on all nodes.
+    nfs_path: ""                    # Place the path of the NFS server's exported dir,
+                                    # e.g., "10.0.0.2:/nfs". Leave it empty for no
+                                    # mounting 
+    email: joe@example.com
+    image: onedata/oneprovider:20.02.5 # The docker image of oneprovider
+    force_op_install: no        # if yes the existing deployment will be detroyed

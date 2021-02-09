@@ -1,0 +1,5 @@
+hosts
+group_vars/all.yml
+*~
+*tfstate*
+site.yml

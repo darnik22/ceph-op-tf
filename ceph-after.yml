@@ -1,0 +1,5 @@
+- hosts:
+  - ceph-node-01
+  tasks:
+  - include_role:
+      name: ceph-after

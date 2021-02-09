@@ -1,0 +1,5 @@
+- hosts:
+  - ops
+  tasks:
+  - include_role:
+      name: oneprovider
