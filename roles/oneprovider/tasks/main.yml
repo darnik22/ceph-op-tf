@@ -1,14 +1,26 @@
 - name: A become=yes block
   become: yes
   block:
-    - name: Gather ipv4 from all hosts
-      setup:
-        gather_subset:
-          - default_ipv4
-      delegate_to: "{{ item }}"
-      delegate_facts: True
-      when: hostvars[item]['ansible_default_ipv4'] is not defined
-      with_items: "{{ groups['all'] }}"
+    # - name: Gather ipv4 from all hosts
+    #   setup:
+    #     gather_subset:
+    #       - default_ipv4
+    #   delegate_to: "{{ item }}"
+    #   delegate_facts: True
+    #   when: hostvars[item]['ansible_default_ipv4'] is not defined
+    #   with_items: "{{ groups['all'] }}"
+    - name: Obtain ceph_mon
+      set_fact:
+        ceph_mon: "{{ lookup('ini', 'mon\ host section=global file=/tmp/files/ceph.conf') | regex_findall('\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}\\b') | unique | join(',') }}"
+      # delegate_to: "ceph-node-01"
+    - debug: 
+        msg: "{{ceph_mon}}"
+    - name: Obtain ceph_key
+      set_fact:
+        ceph_key: "{{ lookup('ini', 'key section=client.admin file=/tmp/files/ceph.client.admin.keyring') }}"
+      # delegate_to: ceph-node-01
+    - debug: 
+        msg: "{{ceph_key}}"
     - name: Check for subdomain
       command: "host {{subdomain}}.{{domain}}"
       register: host_cmd
@@ -155,10 +167,9 @@
       retries: 30
       delay: 10
       
-    # - name: Add storage (localceph)
-    #   command: curl -k -v -H 'X-Auth-Token:{{auth_token}}' -X POST -d "{\"localceph\":{\"type\":\"localceph\"}}" -H 'Content-Type:application/json' https://localhost:9443/api/v3/onepanel/provider/storages
-    #   register: res
-    #   when: storage_type == 'localceph'
-    # # - debug:
-    # #     msg: "{{res}}"
+    - name: Add storage ceph
+      command: curl -k -v -H 'X-Auth-Token:{{auth_token}}' -X POST -d "{\"ceph\":{\"type\":\"cephrados\",\"monitorHostname\":\"{{ceph_mon}}\",\"username\":\"client.admin\",\"poolName\":\"onedata\",\"clusterName\":\"ceph\",\"key\":\"{{ceph_key}}\"}}" -H 'Content-Type:application/json' https://localhost:9443/api/v3/onepanel/provider/storages
+      register: res
+    # - debug:
+    #     msg: "{{res}}"
           

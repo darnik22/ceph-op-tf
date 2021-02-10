@@ -8,9 +8,9 @@ services:
     # Friendly name of the Oneprovider Docker container
     container_name: oneprovider-1
     # Hostname (in this case the hostname inside Docker network)
-    hostname: {{inventory_hostname}}
+    hostname: {{inventory_hostname}}.{{subdomain}}.{{domain}}
     extra_hosts:
-    - "{{inventory_hostname}}:127.0.1.1"
+    - "{{inventory_hostname}}.{{subdomain}}.{{domain}}:127.0.1.1"
     domainname: {{subdomain}}.{{domain}}
     privileged: true
     # Host network mode is preferred, but on some systems may not work (e.g. CentOS)
@@ -20,8 +20,6 @@ services:
        - "/var/run/docker.sock:/var/run/docker.sock"
        # Oneprovider runtime files
        - "/opt/onedata/oneprovider/persistence:/volumes/persistence"
-       # Data storage directories
-       - "{{posix_storage_dir}}:/volumes/storage"
        # Additional, trusted CA certificates (all files from this directory will be added)
        - "/opt/onedata/oneprovider/cacerts:/etc/op_worker/cacerts"
        - "/opt/onedata/oneprovider/cacerts:/etc/op_panel/cacerts"
@@ -35,6 +33,7 @@ services:
        #- "/opt/onedata/oneprovider/certs/key.pem:/etc/op_panel/certs/web_key.pem"
        ## Certificate chain for the TLS certificate above
        #- "/opt/onedata/oneprovider/certs/cacert.pem:/etc/op_panel/certs/web_chain.pem"
+       - "/:/hostfs"
     # Expose the necessary ports from Oneprovider container to the host
     # This section can be commented when using host mode networking
     ports:
@@ -45,7 +44,7 @@ services:
     environment:
       # Force Onepanel to read configuration from environment variable
       ONEPANEL_BATCH_MODE: "true"
-      ONEPANEL_EMERGENCY_PASSPHRASE: "{{adminpass}}"
+      ONEPANEL_EMERGENCY_PASSPHRASE: "{{emergency_passphrase}}"
       # Provide initial Oneprovider configuration for Onepanel in environment variable
       ONEPROVIDER_CONFIG: |
         # Cluster configuration allows to specify distribution of Oneprovider
@@ -73,14 +72,14 @@ services:
             bucketQuota: 1024
             nodes:
               - "n1"
-          storages:
-            ceph:
-              type: CephRados
-              hostname: {{ceph_monitors}}
-              poolname: onedata
-              username: client.admin
-              key: {{ceph_key}}
-              clustername: ceph
+          # storages:
+          #   ceph:
+          #     type: cephrados
+          #     hostname: {{ceph_mon}}
+          #     poolname: onedata
+          #     username: client.admin
+          #     key: {{ceph_key}}
+          #     clustername: ceph
 
         oneprovider:
           # geoLatitude: 50.0646501 # TODO: get coords automatically
@@ -104,13 +103,4 @@ services:
         onezone:
           # Address of the Onezone at which this Oneprovider will register
           domainName: {{domain}}
-        # onepanel:
-        #   # Create initially 1 administrator and 1 regular user
-        #   users:
-        #     "admin":
-        #       password: {{adminpass}}
-        #       userRole: "admin"
-        #     "user":
-        #       password: {{userpass}}
-        #       userRole: "regular"
         

@@ -31,6 +31,8 @@ Place your hostnames and ips. There are four groups:
 * [osds] - OSDs
 * [ops] - oneprovider nodes
 
+The hosts should be accessible with your ssh public key without prompting.
+
 ### Ansible variables
 Copy group_vars/all.yml.sample and modify it accordingly:
 ```
@@ -40,11 +42,15 @@ vim all.yml
 ```
 The variables semantic is explained in the comments.
  
-## Running the playbook
+## Running the playbooks
 
 Run:
 ```
+ansible-playbook -i hosts ceph-prep.yml
+cd ceph-ansible
 ansible-playbook -i hosts site.yml
+cd ..
+ansible-playbook -i hosts op.yml
 ```
 
 # Deploying with terraform and ansible

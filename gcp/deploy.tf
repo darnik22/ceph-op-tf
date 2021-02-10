@@ -4,8 +4,8 @@ variable "ceph_nodes_count" {
 variable "op_nodes_count" {
   default = 1
 }
-variable "opname" {}
-variable "subdomain" {}
+# variable "opname" {}
+# variable "subdomain" {}
 variable "pubkey" {}
 variable "user" {}
 
@@ -160,13 +160,13 @@ resource "google_compute_firewall" "default" {
 
 resource "local_file" "ceph-ips-for-ansible" {
     count = var.ceph_nodes_count
-    content     = "${join("\n", formatlist("%s ansible_host=%s", google_compute_instance.ceph_nodes.*.name, google_compute_instance.ceph_nodes.*.network_interface.0.access_config.0.nat_ip))}\n"
+    content     = "${join("\n", formatlist("%s ansible_host=%s ansible_user=%s", google_compute_instance.ceph_nodes.*.name, google_compute_instance.ceph_nodes.*.network_interface.0.access_config.0.nat_ip, var.user))}\n"
     filename = "${path.module}/ceph-ips.txt"
 }
 
 resource "local_file" "op-ips-for-ansible" {
     count = var.ceph_nodes_count
-    content     = "${join("\n", formatlist("%s ansible_host=%s", google_compute_instance.op_nodes.*.name, google_compute_instance.op_nodes.*.network_interface.0.access_config.0.nat_ip))}\n"
+    content     = "${join("\n", formatlist("%s ansible_host=%s ansible_user=%s", google_compute_instance.op_nodes.*.name, google_compute_instance.op_nodes.*.network_interface.0.access_config.0.nat_ip, var.user))}\n"
     filename = "${path.module}/op-ips.txt"
 }
 
@@ -174,7 +174,7 @@ resource "null_resource" "ansible" {
   # depends_on = [local_file.ips-for-ansible,null_resource.nodes_up]
   depends_on = [local_file.ceph-ips-for-ansible]
   provisioner "local-exec" {
-    command = "../run-ansible.sh ${var.opname} ${var.subdomain} ${var.user} sdb"
+    command = "../run-ansible.sh"
   }   
 }
 

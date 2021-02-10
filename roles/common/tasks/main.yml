@@ -1,14 +1,14 @@
 - name: A become=yes block
   become: yes
   block:
-    - name: Gather ipv4 from all hosts
-      setup:
-        gather_subset:
-          - default_ipv4
-      delegate_to: "{{ item }}"
-      delegate_facts: True
-      when: hostvars[item]['ansible_default_ipv4'] is not defined
-      with_items: "{{ groups['all'] }}"
+    # - name: Gather ipv4 from all hosts
+    #   setup:
+    #     gather_subset:
+    #       - default_ipv4
+    #   delegate_to: "{{ item }}"
+    #   delegate_facts: True
+    #   when: hostvars[item]['ansible_default_ipv4'] is not defined
+    #   with_items: "{{ groups['all'] }}"
     - name: Install bind-utils, jq
       apt:
         update_cache: yes

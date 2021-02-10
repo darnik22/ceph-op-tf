@@ -1,5 +1,13 @@
 - hosts:
+  - ceph-node-01
+  tasks:
+  - include_role:
+      name: ceph-after
+
+- hosts:
   - ops
   tasks:
+  - include_role:
+      name: common
   - include_role:
       name: oneprovider
