@@ -64,17 +64,18 @@ gcp - scripts for Google Cloud Platform
 
 ## Common configuration
 
-Note that some ansible variables set in group_vars/all.yml will be overwirtten by the terraform scripts.
 * Go to the relevant terraform directiory
 * Copy or rename the sample tvars file
+* Edit od.tvars - place in your cloud-related parameters according to the comments
+* Edit group_vars/all.yml - place in your onedata-related parameters
 ```
+cd gcp
 cp od.tvars.sample od.tvars
+vim od.tvars
+vim ../group_vars/all.yml
 ```
-* Edit od.tvars - place in your parameters according to the comments
-* Edit group_vars/all.yml. The variables opname and subdomain will be overwitten using the values
-from od.tvars, so you leave them untouched.
 
-## Deploying oneprovider
+## Deploying ceph and oneprovider
 Run terraform
 ```
 terraform apply -var-file od.tvars
