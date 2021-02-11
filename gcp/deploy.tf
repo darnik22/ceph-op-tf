@@ -26,7 +26,7 @@ resource "google_compute_instance" "ceph_nodes" {
 
   labels = {
     user = var.user
-    subdomain = var.subdomain
+    # subdomain = var.subdomain
   }
   network_interface {
     # A default network is created for all GCP projects
@@ -78,7 +78,7 @@ resource "google_compute_instance" "op_nodes" {
 
   labels = {
     user = var.user
-    subdomain = var.subdomain
+    # subdomain = var.subdomain
   }
   network_interface {
     # A default network is created for all GCP projects
